@@ -1,0 +1,12 @@
+# 컴파일 결과물
+build/
+*.hex
+*.bin
+*.elf
+
+# VS Code 설정 폴더
+.vscode/
+
+# 운영체제 임시 파일
+.DS_Store
+Thumbs.db
