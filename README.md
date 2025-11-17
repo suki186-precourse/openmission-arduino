@@ -15,11 +15,11 @@
 **🔹 1. 기본 설정**
 
 - [x] 조이스틱 쉴드 핀맵 확인 (A0: X축, D8: 버튼)
-- [ ] I2C OLED 핀 연결 (A4: SDA, A5: SCL)
+- [x] I2C OLED 핀 연결 (A4: SDA, A5: SCL)
 - [ ] 3색 LED 핀 연결 (D3: R, D4: G, D5: B)
 - [ ] 부저 핀 연결 (D2)
 - [x] setup() 함수에서 각 핀 모드(INPUT_PULLUP, OUTPUT) 설정
-- [ ] I2C OLED 라이브러리 초기화
+- [x] I2C OLED 라이브러리 초기화
 
 **🔹 2. 입력 처리**
 
@@ -56,11 +56,11 @@
 
 **🔹 4. 디스플레이 출력**
 
-- [ ] TITLE 상태: "BRICK BREAKER" 텍스트 출력
+- [x] TITLE 상태: "BRICK BREAKER" 텍스트 출력
 - [ ] GAME_OVER 상태: "GAME OVER" 텍스트 출력
 - [ ] CLEAR 상태: "CLEAR" 텍스트 출력
 - [ ] PLAYING 상태: 패들, 공, 벽돌, 하트 그리기
-- [ ] 화면 업데이트
+- [x] 화면 업데이트
 
 **🔹 5. 피드백 출력**
 

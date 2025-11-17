@@ -25,7 +25,10 @@ bool lastButtonState = HIGH;      // 버튼의 이전 상태
 bool currentButtonState = HIGH;   // 버튼의 현재 상태
 
 // 게임 상태 변수
-int paddlePos = 0;
+float paddlePos = 60.0;            // 패들 현재 위치
+int targetPaddlePos = 60;          // 패들 목표 위치
+const float smoothingFactor = 0.2; // 스무딩 계수(부드러움)
+
 bool isButtonPressed = false; // 최종 버튼 눌림 상태
 
 // --- 초기화 ---
@@ -48,14 +51,18 @@ void setup() {
   display.display();
 
   delay(1000);
+
+  paddlePos = 118 / 2.0; 
+  targetPaddlePos = 118 / 2;
 }
 
 // --- 메인 루프 ---
 void loop() {
   // 조이스틱 X축 값 읽기 (중앙값 521) -> 0~127값으로 변환
   int joyX = analogRead(JOYSTICK_X_PIN);
-  paddlePos = constrain(map(joyX, 100, 900, 0, 118), 0, 118);
-  
+  targetPaddlePos = constrain(map(joyX, 100, 900, 0, 118), 0, 118);
+  paddlePos = (paddlePos * (1.0 - smoothingFactor)) + (targetPaddlePos * smoothingFactor);
+
   // 조이스틱 버튼 값 읽기
   currentButtonState = digitalRead(JOYSTICK_BUTTON_PIN);
   isButtonPressed = false;
@@ -78,13 +85,13 @@ void loop() {
   display.clearDisplay(); 
 
   // 패들 그리기
-  display.fillRect(paddlePos, 60, 15, 4, SSD1306_WHITE);
+  display.fillRect((int)paddlePos, 60, 15, 4, SSD1306_WHITE);
 
   // 좌표, 버튼 상태 출력
   display.setTextSize(1);
   display.setCursor(0, 0);
   display.print("Paddle X: ");
-  display.print(paddlePos);
+  display.print((int)paddlePos);
   display.setCursor(0, 10);
   display.print("BTN: ");
   if (isButtonPressed) {
