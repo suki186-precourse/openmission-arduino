@@ -152,6 +152,7 @@ void loop() {
     setLedColor(255, 255, 255);
     tone(BUZZER_PIN, 800, 50);
     delay(50);
+    setLedColor(0, 255, 0);
   }
 
   // 화면 버퍼 지우기
