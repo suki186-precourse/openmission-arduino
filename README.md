@@ -16,8 +16,8 @@
 
 - [x] 조이스틱 쉴드 핀맵 확인 (A0: X축, D8: 버튼)
 - [x] I2C OLED 핀 연결 (A4: SDA, A5: SCL)
-- [ ] 3색 LED 핀 연결 (D9: R, D10: G, D11: B)
-- [ ] 부저 핀 연결 (D2)
+- [x] 3색 LED 핀 연결 (D9: R, D10: G, D11: B)
+- [x] 부저 핀 연결 (D12)
 - [x] setup() 함수에서 각 핀 모드(INPUT_PULLUP, OUTPUT) 설정
 - [x] I2C OLED 라이브러리 초기화
 

@@ -13,6 +13,9 @@ const int LED_PIN_R = 9;
 const int LED_PIN_G = 10;
 const int LED_PIN_B = 11;
 
+// 부저 핀
+const int BUZZER_PIN = 12;
+
 // 디스플레이 상수
 #define SCREEN_WIDTH 128 // OLED 너비
 #define SCREEN_HEIGHT 64 // OLED 높이
@@ -70,18 +73,23 @@ void setup() {
   pinMode(LED_PIN_R, OUTPUT);
   pinMode(LED_PIN_G, OUTPUT);
   pinMode(LED_PIN_B, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
 
-  // --- LED 테스트 ---
+  // --- LED, 부저 테스트 ---
   setLedColor(255, 0, 0); 
+  tone(BUZZER_PIN, 262, 200);
   delay(300); 
 
   setLedColor(0, 255, 0); 
+  tone(BUZZER_PIN, 294, 200);
   delay(300); 
 
   setLedColor(0, 0, 255); 
+  tone(BUZZER_PIN, 330, 200);
   delay(300); 
 
   setLedColor(0, 0, 0); 
+  noTone(BUZZER_PIN);
 
   // OLED 초기화
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
@@ -97,6 +105,7 @@ void setup() {
   display.println("Ready...");
   display.display();
 
+  setLedColor(0, 255, 0);
   delay(1000);
 
   paddlePos = 118 / 2.0; 
@@ -141,8 +150,8 @@ void loop() {
 
   if (isButtonPressed) {
     setLedColor(255, 255, 255);
+    tone(BUZZER_PIN, 800, 50);
     delay(50);
-    setLedColor(0, 0, 0);
   }
 
   // 화면 버퍼 지우기
