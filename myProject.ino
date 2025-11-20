@@ -31,6 +31,32 @@ const float smoothingFactor = 0.2; // 스무딩 계수(부드러움)
 
 bool isButtonPressed = false; // 최종 버튼 눌림 상태
 
+// 공 변수
+float ballX, ballY;
+const float ballRadius = 2.0;
+
+// 벽돌 변수
+const int BRICK_ROWS = 4;
+const int BRICK_COLS = 5;
+bool bricks[BRICK_ROWS][BRICK_COLS];
+const int brickWidth = 24;
+const int brickHeight = 3;
+
+// 생명(하트) 변수
+int lives = 3;
+
+// 하트 비트맵
+const unsigned char heart_bmp[] PROGMEM = {
+  0b00000000,
+  0b01100110,
+  0b11111111,
+  0b11111111,
+  0b11111111,
+  0b01111110,
+  0b00111100,
+  0b00011000
+};
+
 // --- 초기화 ---
 void setup() {
   Serial.begin(9600);
@@ -54,6 +80,13 @@ void setup() {
 
   paddlePos = 118 / 2.0; 
   targetPaddlePos = 118 / 2;
+
+  // 벽돌 배열 초기화
+  for (int r = 0; r < BRICK_ROWS; r++) {
+    for (int c = 0; c < BRICK_COLS; c++) {
+      bricks[r][c] = true;
+    }
+  }
 }
 
 // --- 메인 루프 ---
@@ -62,6 +95,10 @@ void loop() {
   int joyX = analogRead(JOYSTICK_X_PIN);
   targetPaddlePos = constrain(map(joyX, 100, 900, 0, 118), 0, 118);
   paddlePos = (paddlePos * (1.0 - smoothingFactor)) + (targetPaddlePos * smoothingFactor);
+
+  // [Ready] 공이 패들 중앙 위를 따라다니도록
+  ballX = paddlePos + (15 / 2.0);
+  ballY = 60 - ballRadius - 1;
 
   // 조이스틱 버튼 값 읽기
   currentButtonState = digitalRead(JOYSTICK_BUTTON_PIN);
@@ -87,15 +124,26 @@ void loop() {
   // 패들 그리기
   display.fillRect((int)paddlePos, 60, 15, 4, SSD1306_WHITE);
 
-  // 좌표, 버튼 상태 출력
-  display.setTextSize(1);
-  display.setCursor(0, 0);
-  display.print("Paddle X: ");
-  display.print((int)paddlePos);
-  display.setCursor(0, 10);
-  display.print("BTN: ");
-  if (isButtonPressed) {
-    display.print("YES");
+  // 공 그리기
+  display.fillCircle((int)ballX, (int)ballY, (int)ballRadius, SSD1306_WHITE);
+
+  // 벽돌 그리기
+  const int brickOffsetY = 15;
+  for (int r = 0; r < BRICK_ROWS; r++) {
+    for (int c = 0; c < BRICK_COLS; c++) {
+      if (bricks[r][c] == true) {
+        display.fillRect(c * (brickWidth + 1), brickOffsetY + r * (brickHeight + 1), 
+                         brickWidth, brickHeight, SSD1306_WHITE);
+      }
+    }
+  }
+
+  // 생명 그리기
+  for (int i = 0; i < lives; i++) {
+    int heartX = 118 - (i * 10);
+    int heartY = 2;
+
+    display.drawBitmap(heartX, heartY, heart_bmp, 8, 8, SSD1306_WHITE);
   }
 
   // 버퍼의 내용을 화면으로 전송
