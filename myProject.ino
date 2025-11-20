@@ -8,6 +8,11 @@
 const int JOYSTICK_X_PIN = A0;     // 조이스틱 X축
 const int JOYSTICK_BUTTON_PIN = 5; // 조이스틱 버튼 D5
 
+// 3색 LED 핀
+const int LED_PIN_R = 9;
+const int LED_PIN_G = 10;
+const int LED_PIN_B = 11;
+
 // 디스플레이 상수
 #define SCREEN_WIDTH 128 // OLED 너비
 #define SCREEN_HEIGHT 64 // OLED 높이
@@ -61,6 +66,22 @@ const unsigned char heart_bmp[] PROGMEM = {
 void setup() {
   Serial.begin(9600);
   pinMode(JOYSTICK_BUTTON_PIN, INPUT_PULLUP);
+
+  pinMode(LED_PIN_R, OUTPUT);
+  pinMode(LED_PIN_G, OUTPUT);
+  pinMode(LED_PIN_B, OUTPUT);
+
+  // --- LED 테스트 ---
+  setLedColor(255, 0, 0); 
+  delay(300); 
+
+  setLedColor(0, 255, 0); 
+  delay(300); 
+
+  setLedColor(0, 0, 255); 
+  delay(300); 
+
+  setLedColor(0, 0, 0); 
 
   // OLED 초기화
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
@@ -118,6 +139,12 @@ void loop() {
     }
   }
 
+  if (isButtonPressed) {
+    setLedColor(255, 255, 255);
+    delay(50);
+    setLedColor(0, 0, 0);
+  }
+
   // 화면 버퍼 지우기
   display.clearDisplay(); 
 
@@ -154,4 +181,10 @@ void loop() {
   Serial.print(paddlePos);
   Serial.print(" | Button Pressed: ");
   Serial.println(isButtonPressed ? "YES" : "NO");
+}
+
+void setLedColor(int r, int g, int b) {
+  analogWrite(LED_PIN_R, r);
+  analogWrite(LED_PIN_G, g);
+  analogWrite(LED_PIN_B, b);
 }
