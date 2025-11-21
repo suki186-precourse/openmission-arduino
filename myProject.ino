@@ -178,7 +178,6 @@ void loop() {
       ballSpeedX = -ballSpeedX; // 방향 반전
       tone(BUZZER_PIN, 500, 20);
     }
-    
     else if (ballX + ballRadius >= SCREEN_WIDTH) { // 오른쪽
       ballX = SCREEN_WIDTH - ballRadius;
       ballSpeedX = -ballSpeedX;
@@ -189,6 +188,33 @@ void loop() {
       ballY = ballRadius;
       ballSpeedY = -ballSpeedY;
       tone(BUZZER_PIN, 500, 20);
+    }
+
+    // 패들 충돌 처리
+    if (ballSpeedY > 0 && 
+        ballY + ballRadius >= 60 && 
+        ballY - ballRadius <= 64) {
+        
+      if (ballX + ballRadius >= paddlePos && 
+          ballX - ballRadius <= paddlePos + 15) {
+        ballSpeedY = -ballSpeedY; 
+        
+        // 공이 패들에 박히지 않도록
+        ballY = 60 - ballRadius - 0.1;
+
+        // X축 속도 변화
+        float hitPoint = ballX - (paddlePos + 7.5);
+        ballSpeedX = hitPoint * 0.3; 
+
+        // 속도 제한
+        if (ballSpeedX > 2.5) ballSpeedX = 2.5;
+        if (ballSpeedX < -2.5) ballSpeedX = -2.5;
+        if (ballSpeedX > -0.5 && ballSpeedX < 0.5) {
+           ballSpeedX = (ballSpeedX > 0) ? 0.5 : -0.5;
+        }
+
+        tone(BUZZER_PIN, 1500, 30); 
+      }
     }
 
     // 바닥 -> 추가 예정
