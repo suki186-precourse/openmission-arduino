@@ -59,8 +59,24 @@ enum GameState {
 };
 GameState currentState = STATE_READY;
 
+// 패들 구조체
+struct Paddle {
+  float x;
+  int targetX;
+  float smoothing;
+};
+
+// 공 구조체
+struct Ball {
+  float x, y;
+  float vx, vy;
+};
+
 // --- 게임 변수 ---
 #define INITIAL_LIVES 3 // 초기 생명 개수
+
+Paddle paddle;
+Ball ball;
 
 // 디바운스 변수
 unsigned long lastButtonTime = 0; // 버튼을 마지막으로 누른 시간
@@ -68,17 +84,7 @@ unsigned long buttonDelay = 50;   // 버튼 인식 간격
 bool lastButtonState = HIGH;      // 버튼의 이전 상태 
 bool currentButtonState = HIGH;   // 버튼의 현재 상태
 
-// 게임 상태 변수
-float paddlePos = PADDLE_Y;        // 패들 현재 위치
-int targetPaddlePos = PADDLE_Y;    // 패들 목표 위치
-const float smoothingFactor = 0.4; // 스무딩 계수(부드러움)
-
 bool isButtonPressed = false; // 최종 버튼 눌림 상태
-
-// 공 변수
-float ballX, ballY;
-float ballSpeedX = 0;
-float ballSpeedY = 0;
 
 // 벽돌 변수
 bool bricks[BRICK_ROWS][BRICK_COLS];
@@ -141,6 +147,8 @@ void setup() {
 
   setLedColor(0, 255, 0); // LED 초록
   delay(1000);
+  
+  paddle.smoothing = 0.4; // 스무딩 계수
 
   resetGame(); // 게임 변수 초기화
 }
@@ -158,8 +166,9 @@ void processInput() {
   // 조이스틱 X축 값 읽기 (중앙값 521) -> 0~127값으로 변환
   int joyX = analogRead(JOYSTICK_X_PIN);
 
-  targetPaddlePos = constrain(map(joyX, 100, 900, 0, PADDLE_MAP_MAX), 0, PADDLE_MAP_MAX);
-  paddlePos = (paddlePos * (1.0 - smoothingFactor)) + (targetPaddlePos * smoothingFactor);
+  paddle.targetX = constrain(map(joyX, 100, 900, 0, PADDLE_MAP_MAX), 0, PADDLE_MAP_MAX);
+
+  paddle.x = (paddle.x * (1.0 - paddle.smoothing)) + (paddle.targetX * paddle.smoothing);
 
   // 조이스틱 버튼 값 읽기
   currentButtonState = digitalRead(JOYSTICK_BUTTON_PIN);
@@ -185,63 +194,62 @@ void updateGame() {
   // 게임 상태별 로직
   if (currentState == STATE_READY) {
     // [READY 상태] 공이 패들에 붙어 다님
-    ballX = paddlePos + (PADDLE_W / 2.0);
-    ballY = PADDLE_Y - BALL_R - 1;
+    ball.x = paddle.x + (PADDLE_W / 2.0);
+    ball.y = PADDLE_Y - BALL_R - 1;
 
     // 버튼을 누르면 -> 공 발사, PLAYING 상태로
     if (isButtonPressed) {
       currentState = STATE_PLAYING;
 
-      // [상수 적용] 초기 속도
-      ballSpeedX = BALL_SPEED_INIT; 
-      ballSpeedY = -BALL_SPEED_INIT; 
+      ball.vx = BALL_SPEED_INIT; 
+      ball.vy = -BALL_SPEED_INIT; 
 
       tone(BUZZER_PIN, SND_START, 100); 
     }
 
   } else if (currentState == STATE_PLAYING) {
     // [PLAYING 상태]
-    ballX += ballSpeedX;
-    ballY += ballSpeedY;
+    ball.x += ball.vx;
+    ball.y += ball.vy;
 
     // 벽 충돌 처리
-    if (ballX - BALL_R <= 0) { // 왼쪽
-      ballX = BALL_R;
-      ballSpeedX = -ballSpeedX; // 방향 반전
+    if (ball.x - BALL_R <= 0) { // 왼쪽
+      ball.x = BALL_R;
+      ball.vx = -ball.vx; // 방향 반전
       tone(BUZZER_PIN, SND_HIT_WALL, 20);
     }
-    else if (ballX + BALL_R >= SCREEN_WIDTH) { // 오른쪽
-      ballX = SCREEN_WIDTH - BALL_R;
-      ballSpeedX = -ballSpeedX;
+    else if (ball.x + BALL_R >= SCREEN_WIDTH) { // 오른쪽
+      ball.x = SCREEN_WIDTH - BALL_R;
+      ball.vx = -ball.vx;
       tone(BUZZER_PIN, SND_HIT_WALL, 20);
     }
 
-    if (ballY - BALL_R <= TOP_BAR_HEIGHT) { // 위쪽
-      ballY = TOP_BAR_HEIGHT + BALL_R;
-      ballSpeedY = -ballSpeedY; 
+    if (ball.y - BALL_R <= TOP_BAR_HEIGHT) { // 위쪽
+      ball.y = TOP_BAR_HEIGHT + BALL_R;
+      ball.vy = -ball.vy; 
       tone(BUZZER_PIN, SND_HIT_WALL, 20);
     }
 
     // 패들 충돌 처리
-    if (ballSpeedY > 0 && 
-        ballY + BALL_R >= PADDLE_Y && 
-        ballY - BALL_R <= PADDLE_Y + PADDLE_H) {
+    if (ball.vy > 0 && 
+        ball.y + BALL_R >= PADDLE_Y && 
+        ball.y - BALL_R <= PADDLE_Y + PADDLE_H) {
         
-      if (ballX + BALL_R >= paddlePos && 
-          ballX - BALL_R <= paddlePos + PADDLE_W) {
-        ballSpeedY = -ballSpeedY; 
+      if (ball.x + BALL_R >= paddle.x && 
+          ball.x - BALL_R <= paddle.x + PADDLE_W) {
+        ball.vy = -ball.vy; 
         
         // 공이 패들에 박히지 않도록
-        ballY = PADDLE_Y - BALL_R - 0.1;
+        ball.y = PADDLE_Y - BALL_R - 0.1;
 
         // X축 속도 변화
-        float hitPoint = ballX - (paddlePos + (PADDLE_W / 2.0));
-        ballSpeedX = hitPoint * 0.3; 
+        float hitPoint = ball.x - (paddle.x + (PADDLE_W / 2.0));
+        ball.vx = hitPoint * 0.3; 
 
         // 속도 제한
-        if (ballSpeedX > BALL_SPEED_MAX) ballSpeedX = BALL_SPEED_MAX;
-        if (ballSpeedX < -BALL_SPEED_MAX) ballSpeedX = -BALL_SPEED_MAX;
-        if (ballSpeedX > -BALL_SPEED_MIN && ballSpeedX < BALL_SPEED_MIN) ballSpeedX = (ballSpeedX > 0) ? BALL_SPEED_MIN : -BALL_SPEED_MIN;
+        if (ball.vx > BALL_SPEED_MAX) ball.vx = BALL_SPEED_MAX;
+        if (ball.vx < -BALL_SPEED_MAX) ball.vx = -BALL_SPEED_MAX;
+        if (ball.vx > -BALL_SPEED_MIN && ball.vx < BALL_SPEED_MIN) ball.vx = (ball.vx > 0) ? BALL_SPEED_MIN : -BALL_SPEED_MIN;
         tone(BUZZER_PIN, SND_HIT_PADDLE, 30); 
       }
     }
@@ -257,12 +265,12 @@ void updateGame() {
           int bY = BRICK_OFFSET_Y + r * (BRICK_H + BRICK_GAP);
 
           // 충돌 감지
-          if (ballX + BALL_R > bX && ballX - BALL_R < bX + BRICK_W &&
-              ballY + BALL_R > bY && ballY - BALL_R < bY + BRICK_H) {
+          if (ball.x + BALL_R > bX && ball.x - BALL_R < bX + BRICK_W &&
+              ball.y + BALL_R > bY && ball.y - BALL_R < bY + BRICK_H) {
             
             bricks[r][c] = false;
             activeBricks--;
-            ballSpeedY = -ballSpeedY;
+            ball.vy = -ball.vy;
             hitBrick = true;
 
             score += 100; // 점수 증가
@@ -285,7 +293,7 @@ void updateGame() {
     }
 
     // 바닥 충돌 (생명 감소)
-    if (ballY - BALL_R > SCREEN_HEIGHT) {
+    if (ball.y - BALL_R > SCREEN_HEIGHT) {
       lives--;
       score -= 50; // 점수 감소
       if (score < 0) score = 0;
@@ -297,7 +305,7 @@ void updateGame() {
       if (lives > 0) {
         // 생명이 남았으면 -> READY 상태
         currentState = STATE_READY;
-        paddlePos = PADDLE_MAP_MAX / 2.0;
+        paddle.x = PADDLE_MAP_MAX / 2.0;
         setLedColor(0, 255, 0); // 초록
       } else {
         // 생명 0 -> GAME_OVER 상태
@@ -337,8 +345,8 @@ void renderGame() {
     display.drawLine(0, TOP_BAR_HEIGHT, SCREEN_WIDTH, TOP_BAR_HEIGHT, SSD1306_WHITE);
 
     // 패들, 공 그리기
-    display.fillRect((int)paddlePos, PADDLE_Y, PADDLE_W, PADDLE_H, SSD1306_WHITE);
-    display.fillCircle((int)ballX, (int)ballY, (int)BALL_R, SSD1306_WHITE);
+    display.fillRect((int)paddle.x, PADDLE_Y, PADDLE_W, PADDLE_H, SSD1306_WHITE);
+    display.fillCircle((int)ball.x, (int)ball.y, (int)BALL_R, SSD1306_WHITE);
 
   } else if (currentState == STATE_PLAYING) {
     // 점수 표시
@@ -349,8 +357,8 @@ void renderGame() {
 
     display.drawLine(0, TOP_BAR_HEIGHT, SCREEN_WIDTH, TOP_BAR_HEIGHT, SSD1306_WHITE);
 
-    display.fillRect((int)paddlePos, PADDLE_Y, PADDLE_W, PADDLE_H, SSD1306_WHITE);
-    display.fillCircle((int)ballX, (int)ballY, (int)BALL_R, SSD1306_WHITE);
+    display.fillRect((int)paddle.x, PADDLE_Y, PADDLE_W, PADDLE_H, SSD1306_WHITE);
+    display.fillCircle((int)ball.x, (int)ball.y, (int)BALL_R, SSD1306_WHITE);
 
   } else if (currentState == STATE_GAME_OVER) {
     // [GAME_OVER 상태]
@@ -439,8 +447,8 @@ void resetGame() {
   lives = INITIAL_LIVES;
   score = 0;
 
-  paddlePos = PADDLE_MAP_MAX / 2.0;
-  targetPaddlePos = PADDLE_MAP_MAX / 2;
+  paddle.x = PADDLE_MAP_MAX / 2.0;
+  paddle.targetX = PADDLE_MAP_MAX / 2;
   currentState = STATE_READY;
   setLedColor(0, 255, 0); // 녹색
 
