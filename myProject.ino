@@ -34,6 +34,7 @@ GameState currentState = STATE_READY;
 
 // --- 게임 변수 ---
 #define INITIAL_LIVES 3 // 초기 생명 개수
+#define TOP_BAR_HEIGHT 11 // 점수, 하트 높이
 
 // 디바운스 변수
 unsigned long lastButtonTime = 0; // 버튼을 마지막으로 누른 시간
@@ -44,7 +45,7 @@ bool currentButtonState = HIGH;   // 버튼의 현재 상태
 // 게임 상태 변수
 float paddlePos = 60.0;            // 패들 현재 위치
 int targetPaddlePos = 60;          // 패들 목표 위치
-const float smoothingFactor = 0.2; // 스무딩 계수(부드러움)
+const float smoothingFactor = 0.4; // 스무딩 계수(부드러움)
 
 bool isButtonPressed = false; // 최종 버튼 눌림 상태
 
@@ -169,6 +170,8 @@ void loop() {
     display.print("SCORE:");
     display.print(score);
 
+    display.drawLine(0, TOP_BAR_HEIGHT, SCREEN_WIDTH, TOP_BAR_HEIGHT, SSD1306_WHITE);
+
     display.fillRect((int)paddlePos, 60, 15, 4, SSD1306_WHITE);
     display.fillCircle((int)ballX, (int)ballY, (int)ballRadius, SSD1306_WHITE);
 
@@ -189,9 +192,9 @@ void loop() {
       tone(BUZZER_PIN, 500, 20);
     }
 
-    if (ballY - ballRadius <= 0) { // 위쪽
-      ballY = ballRadius;
-      ballSpeedY = -ballSpeedY;
+    if (ballY - ballRadius <= TOP_BAR_HEIGHT) { // 위쪽
+      ballY = TOP_BAR_HEIGHT + ballRadius;
+      ballSpeedY = -ballSpeedY; 
       tone(BUZZER_PIN, 500, 20);
     }
 
@@ -220,7 +223,7 @@ void loop() {
     }
 
     // 벽돌 충돌 처리
-    const int brickOffsetY = 15;
+    const int brickOffsetY = 14;
     bool hitBrick = false;
 
     for (int r = 0; r < BRICK_ROWS; r++) {
@@ -287,6 +290,8 @@ void loop() {
     display.print("SCORE:");
     display.print(score);
 
+    display.drawLine(0, TOP_BAR_HEIGHT, SCREEN_WIDTH, TOP_BAR_HEIGHT, SSD1306_WHITE);
+
     display.fillRect((int)paddlePos, 60, 15, 4, SSD1306_WHITE);
     display.fillCircle((int)ballX, (int)ballY, (int)ballRadius, SSD1306_WHITE);
 
@@ -330,7 +335,7 @@ void loop() {
   // --- 공통 요소 그리기 ---
   // 벽돌 (GAME_OVER 아닌 경우만)
   if (currentState != STATE_GAME_OVER) {
-    const int brickOffsetY = 15;
+    const int brickOffsetY = 14;
     for (int r = 0; r < BRICK_ROWS; r++) {
       for (int c = 0; c < BRICK_COLS; c++) {
         if (bricks[r][c] == true) {
