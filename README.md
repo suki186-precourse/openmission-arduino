@@ -30,7 +30,7 @@
 
 **🔹 3. 게임 로직**
 
-- [x] 게임 상태(Game State) 관리 (TITLE, READY, PLAYING, GAME_OVER, CLEAR)
+- [x] 게임 상태(Game State) 관리 (TITLE, READY, PLAYING, GAME_OVER, GAME_CLEAR)
 
 [Ready 상태]
 
