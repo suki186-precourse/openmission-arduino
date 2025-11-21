@@ -24,6 +24,15 @@ const int BUZZER_PIN = 12;
 // Adafruit_SSD1306 객체
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
+// --- 게임 상태 ---
+enum GameState {
+  STATE_READY,
+  STATE_PLAYING,
+  STATE_GAME_OVER,
+  STATE_CLEAR
+};
+GameState currentState = STATE_READY;
+
 // --- 게임 변수 ---
 
 // 디바운스 변수
@@ -55,14 +64,8 @@ int lives = 3;
 
 // 하트 비트맵
 const unsigned char heart_bmp[] PROGMEM = {
-  0b00000000,
-  0b01100110,
-  0b11111111,
-  0b11111111,
-  0b11111111,
-  0b01111110,
-  0b00111100,
-  0b00011000
+  0b00000000, 0b01100110, 0b11111111, 0b11111111,
+  0b11111111, 0b01111110, 0b00111100, 0b00011000
 };
 
 // --- 초기화 ---
@@ -105,7 +108,7 @@ void setup() {
   display.println("Ready...");
   display.display();
 
-  setLedColor(0, 255, 0);
+  setLedColor(0, 255, 0); // LED 초록
   delay(1000);
 
   paddlePos = 118 / 2.0; 
@@ -126,10 +129,6 @@ void loop() {
   targetPaddlePos = constrain(map(joyX, 100, 900, 0, 118), 0, 118);
   paddlePos = (paddlePos * (1.0 - smoothingFactor)) + (targetPaddlePos * smoothingFactor);
 
-  // [Ready] 공이 패들 중앙 위를 따라다니도록
-  ballX = paddlePos + (15 / 2.0);
-  ballY = 60 - ballRadius - 1;
-
   // 조이스틱 버튼 값 읽기
   currentButtonState = digitalRead(JOYSTICK_BUTTON_PIN);
   isButtonPressed = false;
@@ -148,12 +147,24 @@ void loop() {
     }
   }
 
-  if (isButtonPressed) {
-    setLedColor(255, 255, 255);
-    tone(BUZZER_PIN, 800, 50);
-    delay(50);
-    setLedColor(0, 255, 0);
-  }
+  // 게임 상태별 로직
+  // ==============================
+  if (currentState == STATE_READY) {
+    // [READY 상태] 공이 패들에 붙어 다님
+    ballX = paddlePos + (15 / 2.0);
+    ballY = 60 - ballRadius - 1;
+
+    // 버튼을 누르면 -> PLAYING 상태로
+    if (isButtonPressed) {
+      currentState = STATE_PLAYING;
+      
+      tone(BUZZER_PIN, 1000, 100); 
+      setLedColor(0, 0, 255); // 파랑
+    }
+
+  } else if (currentState == STATE_PLAYING) {
+    // [PLAYING 상태]
+  }  
 
   // 화면 버퍼 지우기
   display.clearDisplay(); 
