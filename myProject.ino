@@ -34,6 +34,7 @@ GameState currentState = STATE_READY;
 
 // --- 게임 변수 ---
 #define INITIAL_LIVES 3 // 초기 생명 개수
+#define TOP_BAR_HEIGHT 11 // 점수, 하트 높이
 
 // 디바운스 변수
 unsigned long lastButtonTime = 0; // 버튼을 마지막으로 누른 시간
@@ -44,7 +45,7 @@ bool currentButtonState = HIGH;   // 버튼의 현재 상태
 // 게임 상태 변수
 float paddlePos = 60.0;            // 패들 현재 위치
 int targetPaddlePos = 60;          // 패들 목표 위치
-const float smoothingFactor = 0.2; // 스무딩 계수(부드러움)
+const float smoothingFactor = 0.4; // 스무딩 계수(부드러움)
 
 bool isButtonPressed = false; // 최종 버튼 눌림 상태
 
@@ -62,8 +63,8 @@ const int brickWidth = 24;
 const int brickHeight = 3;
 int activeBricks = 0; // 남은 벽돌
 
-// 생명(하트) 변수
-int lives = INITIAL_LIVES;
+int lives = INITIAL_LIVES; // 생명(하트) 변수
+long score = 0; // 점수
 
 // 하트 비트맵
 const unsigned char heart_bmp[] PROGMEM = {
@@ -73,6 +74,7 @@ const unsigned char heart_bmp[] PROGMEM = {
 
 void setLedColor(int r, int g, int b);
 void resetGame();
+  void updateLed();
 
 // --- 초기화 ---
 void setup() {
@@ -160,8 +162,15 @@ void loop() {
       ballSpeedY = -2.0; 
 
       tone(BUZZER_PIN, 1000, 100); 
-      setLedColor(0, 0, 255); 
     }
+
+    // 점수 표시
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.print("SCORE:");
+    display.print(score);
+
+    display.drawLine(0, TOP_BAR_HEIGHT, SCREEN_WIDTH, TOP_BAR_HEIGHT, SSD1306_WHITE);
 
     display.fillRect((int)paddlePos, 60, 15, 4, SSD1306_WHITE);
     display.fillCircle((int)ballX, (int)ballY, (int)ballRadius, SSD1306_WHITE);
@@ -183,9 +192,9 @@ void loop() {
       tone(BUZZER_PIN, 500, 20);
     }
 
-    if (ballY - ballRadius <= 0) { // 위쪽
-      ballY = ballRadius;
-      ballSpeedY = -ballSpeedY;
+    if (ballY - ballRadius <= TOP_BAR_HEIGHT) { // 위쪽
+      ballY = TOP_BAR_HEIGHT + ballRadius;
+      ballSpeedY = -ballSpeedY; 
       tone(BUZZER_PIN, 500, 20);
     }
 
@@ -214,7 +223,7 @@ void loop() {
     }
 
     // 벽돌 충돌 처리
-    const int brickOffsetY = 15;
+    const int brickOffsetY = 14;
     bool hitBrick = false;
 
     for (int r = 0; r < BRICK_ROWS; r++) {
@@ -232,6 +241,8 @@ void loop() {
             activeBricks--;
             ballSpeedY = -ballSpeedY;
             hitBrick = true;
+
+            score += 100; // 점수 증가
             
             tone(BUZZER_PIN, 2000, 20);
             break;
@@ -252,7 +263,9 @@ void loop() {
 
     // 바닥 충돌 (생명 감소)
     if (ballY - ballRadius > SCREEN_HEIGHT) {
-      lives--; 
+      lives--;
+      score -= 50; // 점수 감소
+      if (score < 0) score = 0;
       
       setLedColor(255, 0, 0); // 빨강
       tone(BUZZER_PIN, 200, 300);
@@ -271,6 +284,14 @@ void loop() {
       }
     }
 
+    // 점수 표시
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.print("SCORE:");
+    display.print(score);
+
+    display.drawLine(0, TOP_BAR_HEIGHT, SCREEN_WIDTH, TOP_BAR_HEIGHT, SSD1306_WHITE);
+
     display.fillRect((int)paddlePos, 60, 15, 4, SSD1306_WHITE);
     display.fillCircle((int)ballX, (int)ballY, (int)ballRadius, SSD1306_WHITE);
 
@@ -282,7 +303,8 @@ void loop() {
     
     display.setTextSize(1);
     display.setCursor(25, 45);
-    display.println("Press Button");
+    display.print("SCORE: ");
+    display.print(score);
 
     // 버튼 누르면 게임 리셋
     if (isButtonPressed) {
@@ -295,15 +317,13 @@ void loop() {
     display.setTextSize(2);
     display.setCursor(16, 20);
     display.println("YOU WIN!");
+    
+    // 점수 표시
     display.setTextSize(1);
-    display.setCursor(25, 45);
-    display.println("Press Button");
+    display.setCursor(25, 45); 
+    display.print("SCORE: ");
+    display.print(score);
 
-    // 무지개 LED
-    long now = millis();
-    if (now % 300 < 100) setLedColor(255, 0, 0);
-    else if (now % 300 < 200) setLedColor(0, 255, 0);
-    else setLedColor(0, 0, 255);
 
     if (isButtonPressed) {
       resetGame();
@@ -315,7 +335,7 @@ void loop() {
   // --- 공통 요소 그리기 ---
   // 벽돌 (GAME_OVER 아닌 경우만)
   if (currentState != STATE_GAME_OVER) {
-    const int brickOffsetY = 15;
+    const int brickOffsetY = 14;
     for (int r = 0; r < BRICK_ROWS; r++) {
       for (int c = 0; c < BRICK_COLS; c++) {
         if (bricks[r][c] == true) {
@@ -332,6 +352,7 @@ void loop() {
   }
 
   display.display();
+  updateLed();
 }
 
 void setLedColor(int r, int g, int b) {
@@ -340,9 +361,42 @@ void setLedColor(int r, int g, int b) {
   analogWrite(LED_PIN_B, b);
 }
 
+// LED 상태 관리 함수
+void updateLed() {
+  // 버튼이 눌려있으면 흰색
+  if (digitalRead(JOYSTICK_BUTTON_PIN) == LOW) {
+    setLedColor(255, 255, 255);
+    return;
+  }
+
+  switch (currentState) {
+    case STATE_READY:
+      setLedColor(0, 255, 0); // 초록
+      break;
+      
+    case STATE_PLAYING:
+      setLedColor(0, 0, 255); // 파랑
+      break;
+      
+    case STATE_GAME_OVER:
+      setLedColor(255, 0, 0); // 빨강
+      break;
+      
+    case STATE_CLEAR:
+      // 무지개 효과
+      long now = millis();
+      if (now % 300 < 100) setLedColor(255, 0, 0);
+      else if (now % 300 < 200) setLedColor(0, 255, 0);
+      else setLedColor(0, 0, 255);
+      break;
+  }
+}
+
 // 게임 초기화 함수
 void resetGame() {
-  lives = INITIAL_LIVES; 
+  lives = INITIAL_LIVES;
+  score = 0;
+
   paddlePos = 118 / 2.0;
   targetPaddlePos = 118 / 2;
   currentState = STATE_READY;
