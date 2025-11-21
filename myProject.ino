@@ -73,6 +73,7 @@ const unsigned char heart_bmp[] PROGMEM = {
 
 void setLedColor(int r, int g, int b);
 void resetGame();
+  void updateLed();
 
 // --- 초기화 ---
 void setup() {
@@ -160,7 +161,6 @@ void loop() {
       ballSpeedY = -2.0; 
 
       tone(BUZZER_PIN, 1000, 100); 
-      setLedColor(0, 0, 255); 
     }
 
     display.fillRect((int)paddlePos, 60, 15, 4, SSD1306_WHITE);
@@ -299,12 +299,6 @@ void loop() {
     display.setCursor(25, 45);
     display.println("Press Button");
 
-    // 무지개 LED
-    long now = millis();
-    if (now % 300 < 100) setLedColor(255, 0, 0);
-    else if (now % 300 < 200) setLedColor(0, 255, 0);
-    else setLedColor(0, 0, 255);
-
     if (isButtonPressed) {
       resetGame();
       tone(BUZZER_PIN, 1500, 100); 
@@ -332,12 +326,44 @@ void loop() {
   }
 
   display.display();
+  updateLed();
 }
 
 void setLedColor(int r, int g, int b) {
   analogWrite(LED_PIN_R, r);
   analogWrite(LED_PIN_G, g);
   analogWrite(LED_PIN_B, b);
+}
+
+// LED 상태 관리 함수
+void updateLed() {
+  // 버튼이 눌려있으면 흰색
+  if (digitalRead(JOYSTICK_BUTTON_PIN) == LOW) {
+    setLedColor(255, 255, 255);
+    return;
+  }
+
+  switch (currentState) {
+    case STATE_READY:
+      setLedColor(0, 255, 0); // 초록
+      break;
+      
+    case STATE_PLAYING:
+      setLedColor(0, 0, 255); // 파랑
+      break;
+      
+    case STATE_GAME_OVER:
+      setLedColor(255, 0, 0); // 빨강
+      break;
+      
+    case STATE_CLEAR:
+      // 무지개 효과
+      long now = millis();
+      if (now % 300 < 100) setLedColor(255, 0, 0);
+      else if (now % 300 < 200) setLedColor(0, 255, 0);
+      else setLedColor(0, 0, 255);
+      break;
+  }
 }
 
 // 게임 초기화 함수

@@ -66,17 +66,18 @@
 
 LED
 
-- [ ] BLUE: TITLE, READY 상태
-- [ ] GREEN: PLAYING 상태
-- [ ] RED: GAME_OVER 상태, 생명 감소 시 깜빡임
-- [ ] ALL: CLEAR 상태 (RGB 순차 점등)
+- [x] BLUE: TITLE, READY 상태
+- [x] GREEN: PLAYING 상태
+- [x] RED: GAME_OVER 상태, 생명 감소
+- [x] ALL: GAME_CLEAR 상태 (RGB 순차 점등)
+- [x] WHITE: 버튼 클릭
 
 부저
 
-- [ ] 게임 시작 / 오버 / 클리어 시 사운드
-- [ ] 공-패들, 공-벽 충돌 시 사운드
-- [ ] 공-벽돌 충돌 시 사운드
-- [ ] 생명 감소 시 사운드
+- [x] 게임 시작 / 오버 / 클리어 시 사운드
+- [x] 공-패들, 공-벽 충돌 시 사운드
+- [x] 공-벽돌 충돌 시 사운드
+- [x] 생명 감소 시 사운드
 
 ---
 
