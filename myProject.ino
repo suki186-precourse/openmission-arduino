@@ -4,9 +4,8 @@
 #include <Adafruit_SSD1306.h>
 
 // --- 핀 및 상수 정의 ---
-// 조이스틱 쉴드
-const int JOYSTICK_X_PIN = A0;     // 조이스틱 X축
-const int JOYSTICK_BUTTON_PIN = 5; // 조이스틱 버튼 D5
+const int JOYSTICK_X_PIN = A0;
+const int JOYSTICK_BUTTON_PIN = 5; 
 
 // 3색 LED 핀
 const int LED_PIN_R = 9;
@@ -24,7 +23,17 @@ const int BUZZER_PIN = 12;
 // Adafruit_SSD1306 객체
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
+// --- 게임 상태 ---
+enum GameState {
+  STATE_READY,
+  STATE_PLAYING,
+  STATE_GAME_OVER,
+  STATE_CLEAR
+};
+GameState currentState = STATE_READY;
+
 // --- 게임 변수 ---
+#define INITIAL_LIVES 3 // 초기 생명 개수
 
 // 디바운스 변수
 unsigned long lastButtonTime = 0; // 버튼을 마지막으로 누른 시간
@@ -42,6 +51,8 @@ bool isButtonPressed = false; // 최종 버튼 눌림 상태
 // 공 변수
 float ballX, ballY;
 const float ballRadius = 2.0;
+float ballSpeedX = 0;
+float ballSpeedY = 0;
 
 // 벽돌 변수
 const int BRICK_ROWS = 4;
@@ -49,21 +60,19 @@ const int BRICK_COLS = 5;
 bool bricks[BRICK_ROWS][BRICK_COLS];
 const int brickWidth = 24;
 const int brickHeight = 3;
+int activeBricks = 0; // 남은 벽돌
 
 // 생명(하트) 변수
-int lives = 3;
+int lives = INITIAL_LIVES;
 
 // 하트 비트맵
 const unsigned char heart_bmp[] PROGMEM = {
-  0b00000000,
-  0b01100110,
-  0b11111111,
-  0b11111111,
-  0b11111111,
-  0b01111110,
-  0b00111100,
-  0b00011000
+  0b00000000, 0b01100110, 0b11111111, 0b11111111,
+  0b11111111, 0b01111110, 0b00111100, 0b00011000
 };
+
+void setLedColor(int r, int g, int b);
+void resetGame();
 
 // --- 초기화 ---
 void setup() {
@@ -89,7 +98,6 @@ void setup() {
   delay(300); 
 
   setLedColor(0, 0, 0); 
-  noTone(BUZZER_PIN);
 
   // OLED 초기화
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
@@ -105,18 +113,10 @@ void setup() {
   display.println("Ready...");
   display.display();
 
-  setLedColor(0, 255, 0);
+  setLedColor(0, 255, 0); // LED 초록
   delay(1000);
 
-  paddlePos = 118 / 2.0; 
-  targetPaddlePos = 118 / 2;
-
-  // 벽돌 배열 초기화
-  for (int r = 0; r < BRICK_ROWS; r++) {
-    for (int c = 0; c < BRICK_COLS; c++) {
-      bricks[r][c] = true;
-    }
-  }
+  resetGame(); // 게임 변수 초기화
 }
 
 // --- 메인 루프 ---
@@ -125,10 +125,6 @@ void loop() {
   int joyX = analogRead(JOYSTICK_X_PIN);
   targetPaddlePos = constrain(map(joyX, 100, 900, 0, 118), 0, 118);
   paddlePos = (paddlePos * (1.0 - smoothingFactor)) + (targetPaddlePos * smoothingFactor);
-
-  // [Ready] 공이 패들 중앙 위를 따라다니도록
-  ballX = paddlePos + (15 / 2.0);
-  ballY = 60 - ballRadius - 1;
 
   // 조이스틱 버튼 값 읽기
   currentButtonState = digitalRead(JOYSTICK_BUTTON_PIN);
@@ -148,53 +144,216 @@ void loop() {
     }
   }
 
-  if (isButtonPressed) {
-    setLedColor(255, 255, 255);
-    tone(BUZZER_PIN, 800, 50);
-    delay(50);
-    setLedColor(0, 255, 0);
-  }
-
-  // 화면 버퍼 지우기
+  // 게임 상태별 로직
   display.clearDisplay(); 
 
-  // 패들 그리기
-  display.fillRect((int)paddlePos, 60, 15, 4, SSD1306_WHITE);
+  if (currentState == STATE_READY) {
+    // [READY 상태] 공이 패들에 붙어 다님
+    ballX = paddlePos + (15 / 2.0);
+    ballY = 60 - ballRadius - 1;
 
-  // 공 그리기
-  display.fillCircle((int)ballX, (int)ballY, (int)ballRadius, SSD1306_WHITE);
+    // 버튼을 누르면 -> 공 발사, PLAYING 상태로
+    if (isButtonPressed) {
+      currentState = STATE_PLAYING;
 
-  // 벽돌 그리기
-  const int brickOffsetY = 15;
-  for (int r = 0; r < BRICK_ROWS; r++) {
-    for (int c = 0; c < BRICK_COLS; c++) {
-      if (bricks[r][c] == true) {
-        display.fillRect(c * (brickWidth + 1), brickOffsetY + r * (brickHeight + 1), 
-                         brickWidth, brickHeight, SSD1306_WHITE);
+      ballSpeedX = 2.0; 
+      ballSpeedY = -2.0; 
+
+      tone(BUZZER_PIN, 1000, 100); 
+      setLedColor(0, 0, 255); 
+    }
+
+    display.fillRect((int)paddlePos, 60, 15, 4, SSD1306_WHITE);
+    display.fillCircle((int)ballX, (int)ballY, (int)ballRadius, SSD1306_WHITE);
+
+  } else if (currentState == STATE_PLAYING) {
+    // [PLAYING 상태]
+    ballX += ballSpeedX;
+    ballY += ballSpeedY;
+
+    // 벽 충돌 처리
+    if (ballX - ballRadius <= 0) { // 왼쪽
+      ballX = ballRadius;
+      ballSpeedX = -ballSpeedX; // 방향 반전
+      tone(BUZZER_PIN, 500, 20);
+    }
+    else if (ballX + ballRadius >= SCREEN_WIDTH) { // 오른쪽
+      ballX = SCREEN_WIDTH - ballRadius;
+      ballSpeedX = -ballSpeedX;
+      tone(BUZZER_PIN, 500, 20);
+    }
+
+    if (ballY - ballRadius <= 0) { // 위쪽
+      ballY = ballRadius;
+      ballSpeedY = -ballSpeedY;
+      tone(BUZZER_PIN, 500, 20);
+    }
+
+    // 패들 충돌 처리
+    if (ballSpeedY > 0 && 
+        ballY + ballRadius >= 60 && 
+        ballY - ballRadius <= 64) {
+        
+      if (ballX + ballRadius >= paddlePos && 
+          ballX - ballRadius <= paddlePos + 15) {
+        ballSpeedY = -ballSpeedY; 
+        
+        // 공이 패들에 박히지 않도록
+        ballY = 60 - ballRadius - 0.1;
+
+        // X축 속도 변화
+        float hitPoint = ballX - (paddlePos + 7.5);
+        ballSpeedX = hitPoint * 0.3; 
+
+        // 속도 제한
+        if (ballSpeedX > 2.5) ballSpeedX = 2.5;
+        if (ballSpeedX < -2.5) ballSpeedX = -2.5;
+        if (ballSpeedX > -0.5 && ballSpeedX < 0.5) ballSpeedX = (ballSpeedX > 0) ? 0.5 : -0.5;
+        tone(BUZZER_PIN, 1500, 30); 
       }
+    }
+
+    // 벽돌 충돌 처리
+    const int brickOffsetY = 15;
+    bool hitBrick = false;
+
+    for (int r = 0; r < BRICK_ROWS; r++) {
+      for (int c = 0; c < BRICK_COLS; c++) {
+        if (bricks[r][c] == true) {
+          // 벽돌의 좌표
+          int bX = c * (brickWidth + 1);
+          int bY = brickOffsetY + r * (brickHeight + 1);
+
+          // 충돌 감지
+          if (ballX + ballRadius > bX && ballX - ballRadius < bX + brickWidth &&
+              ballY + ballRadius > bY && ballY - ballRadius < bY + brickHeight) {
+            
+            bricks[r][c] = false;
+            activeBricks--;
+            ballSpeedY = -ballSpeedY;
+            hitBrick = true;
+            
+            tone(BUZZER_PIN, 2000, 20);
+            break;
+          }
+        }
+      }
+      if (hitBrick) break; 
+    }
+
+    // 게임 클리어
+    if (activeBricks == 0) {
+      currentState = STATE_CLEAR;
+      tone(BUZZER_PIN, 1000, 100); delay(100);
+      tone(BUZZER_PIN, 1200, 100); delay(100);
+      tone(BUZZER_PIN, 1500, 200); delay(200);
+      noTone(BUZZER_PIN);
+    }
+
+    // 바닥 충돌 (생명 감소)
+    if (ballY - ballRadius > SCREEN_HEIGHT) {
+      lives--; 
+      
+      setLedColor(255, 0, 0); // 빨강
+      tone(BUZZER_PIN, 200, 300);
+      delay(500);
+
+      if (lives > 0) {
+        // 생명이 남았으면 -> READY 상태
+        currentState = STATE_READY;
+        paddlePos = 118 / 2.0;
+        setLedColor(0, 255, 0); // 초록
+      } else {
+        // 생명 0 -> GAME_OVER 상태
+        currentState = STATE_GAME_OVER;
+        setLedColor(255, 0, 0); // 빨강
+        tone(BUZZER_PIN, 100, 1000);
+      }
+    }
+
+    display.fillRect((int)paddlePos, 60, 15, 4, SSD1306_WHITE);
+    display.fillCircle((int)ballX, (int)ballY, (int)ballRadius, SSD1306_WHITE);
+
+  } else if (currentState == STATE_GAME_OVER) {
+    // [GAME_OVER 상태]
+    display.setTextSize(2);
+    display.setCursor(10, 20);
+    display.println("GAME OVER");
+    
+    display.setTextSize(1);
+    display.setCursor(25, 45);
+    display.println("Press Button");
+
+    // 버튼 누르면 게임 리셋
+    if (isButtonPressed) {
+      resetGame();
+      tone(BUZZER_PIN, 1500, 100);
+      tone(BUZZER_PIN, 2000, 200);
+    }
+  } else if (currentState == STATE_CLEAR) {
+    // [CLEAR 상태]
+    display.setTextSize(2);
+    display.setCursor(16, 20);
+    display.println("YOU WIN!");
+    display.setTextSize(1);
+    display.setCursor(25, 45);
+    display.println("Press Button");
+
+    // 무지개 LED
+    long now = millis();
+    if (now % 300 < 100) setLedColor(255, 0, 0);
+    else if (now % 300 < 200) setLedColor(0, 255, 0);
+    else setLedColor(0, 0, 255);
+
+    if (isButtonPressed) {
+      resetGame();
+      tone(BUZZER_PIN, 1500, 100); 
+      tone(BUZZER_PIN, 2000, 200);
     }
   }
 
-  // 생명 그리기
-  for (int i = 0; i < lives; i++) {
-    int heartX = 118 - (i * 10);
-    int heartY = 2;
+  // --- 공통 요소 그리기 ---
+  // 벽돌 (GAME_OVER 아닌 경우만)
+  if (currentState != STATE_GAME_OVER) {
+    const int brickOffsetY = 15;
+    for (int r = 0; r < BRICK_ROWS; r++) {
+      for (int c = 0; c < BRICK_COLS; c++) {
+        if (bricks[r][c] == true) {
+          display.fillRect(c * (brickWidth + 1), brickOffsetY + r * (brickHeight + 1), 
+                           brickWidth, brickHeight, SSD1306_WHITE);
+        }
+      }
+    }
 
-    display.drawBitmap(heartX, heartY, heart_bmp, 8, 8, SSD1306_WHITE);
+    // 생명
+    for (int i = 0; i < lives; i++) {
+      display.drawBitmap(118 - (i * 10), 2, heart_bmp, 8, 8, SSD1306_WHITE);
+    }
   }
 
-  // 버퍼의 내용을 화면으로 전송
   display.display();
-
-  // --- 시리얼 모니터 출력 ---
-  Serial.print("Paddle Pos: ");
-  Serial.print(paddlePos);
-  Serial.print(" | Button Pressed: ");
-  Serial.println(isButtonPressed ? "YES" : "NO");
 }
 
 void setLedColor(int r, int g, int b) {
   analogWrite(LED_PIN_R, r);
   analogWrite(LED_PIN_G, g);
   analogWrite(LED_PIN_B, b);
+}
+
+// 게임 초기화 함수
+void resetGame() {
+  lives = INITIAL_LIVES; 
+  paddlePos = 118 / 2.0;
+  targetPaddlePos = 118 / 2;
+  currentState = STATE_READY;
+  setLedColor(0, 255, 0); // 녹색
+
+  // 벽돌 복구
+  activeBricks = 0;
+  for (int r = 0; r < BRICK_ROWS; r++) {
+    for (int c = 0; c < BRICK_COLS; c++) {
+      bricks[r][c] = true;
+      activeBricks++;
+    }
+  }
 }
