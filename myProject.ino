@@ -51,6 +51,8 @@ bool isButtonPressed = false; // 최종 버튼 눌림 상태
 // 공 변수
 float ballX, ballY;
 const float ballRadius = 2.0;
+float ballSpeedX = 0;
+float ballSpeedY = 0;
 
 // 벽돌 변수
 const int BRICK_ROWS = 4;
@@ -154,16 +156,42 @@ void loop() {
     ballX = paddlePos + (15 / 2.0);
     ballY = 60 - ballRadius - 1;
 
-    // 버튼을 누르면 -> PLAYING 상태로
+    // 버튼을 누르면 -> 공 발사, PLAYING 상태로
     if (isButtonPressed) {
       currentState = STATE_PLAYING;
-      
+
+      ballSpeedX = 2.0; 
+      ballSpeedY = -2.0; 
+
       tone(BUZZER_PIN, 1000, 100); 
-      setLedColor(0, 0, 255); // 파랑
+      setLedColor(0, 0, 255); 
     }
 
   } else if (currentState == STATE_PLAYING) {
     // [PLAYING 상태]
+    ballX += ballSpeedX;
+    ballY += ballSpeedY;
+
+    // 벽 충돌 처리
+    if (ballX - ballRadius <= 0) { // 왼쪽
+      ballX = ballRadius;
+      ballSpeedX = -ballSpeedX; // 방향 반전
+      tone(BUZZER_PIN, 500, 20);
+    }
+    
+    else if (ballX + ballRadius >= SCREEN_WIDTH) { // 오른쪽
+      ballX = SCREEN_WIDTH - ballRadius;
+      ballSpeedX = -ballSpeedX;
+      tone(BUZZER_PIN, 500, 20);
+    }
+
+    if (ballY - ballRadius <= 0) { // 위쪽
+      ballY = ballRadius;
+      ballSpeedY = -ballSpeedY;
+      tone(BUZZER_PIN, 500, 20);
+    }
+
+    // 바닥 -> 추가 예정
   }  
 
   // 화면 버퍼 지우기
