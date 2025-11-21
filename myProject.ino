@@ -62,8 +62,8 @@ const int brickWidth = 24;
 const int brickHeight = 3;
 int activeBricks = 0; // 남은 벽돌
 
-// 생명(하트) 변수
-int lives = INITIAL_LIVES;
+int lives = INITIAL_LIVES; // 생명(하트) 변수
+long score = 0; // 점수
 
 // 하트 비트맵
 const unsigned char heart_bmp[] PROGMEM = {
@@ -163,6 +163,12 @@ void loop() {
       tone(BUZZER_PIN, 1000, 100); 
     }
 
+    // 점수 표시
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.print("SCORE:");
+    display.print(score);
+
     display.fillRect((int)paddlePos, 60, 15, 4, SSD1306_WHITE);
     display.fillCircle((int)ballX, (int)ballY, (int)ballRadius, SSD1306_WHITE);
 
@@ -232,6 +238,8 @@ void loop() {
             activeBricks--;
             ballSpeedY = -ballSpeedY;
             hitBrick = true;
+
+            score += 100; // 점수 증가
             
             tone(BUZZER_PIN, 2000, 20);
             break;
@@ -252,7 +260,9 @@ void loop() {
 
     // 바닥 충돌 (생명 감소)
     if (ballY - ballRadius > SCREEN_HEIGHT) {
-      lives--; 
+      lives--;
+      score -= 50; // 점수 감소
+      if (score < 0) score = 0;
       
       setLedColor(255, 0, 0); // 빨강
       tone(BUZZER_PIN, 200, 300);
@@ -271,6 +281,12 @@ void loop() {
       }
     }
 
+    // 점수 표시
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.print("SCORE:");
+    display.print(score);
+
     display.fillRect((int)paddlePos, 60, 15, 4, SSD1306_WHITE);
     display.fillCircle((int)ballX, (int)ballY, (int)ballRadius, SSD1306_WHITE);
 
@@ -282,7 +298,8 @@ void loop() {
     
     display.setTextSize(1);
     display.setCursor(25, 45);
-    display.println("Press Button");
+    display.print("SCORE: ");
+    display.print(score);
 
     // 버튼 누르면 게임 리셋
     if (isButtonPressed) {
@@ -295,9 +312,13 @@ void loop() {
     display.setTextSize(2);
     display.setCursor(16, 20);
     display.println("YOU WIN!");
+    
+    // 점수 표시
     display.setTextSize(1);
-    display.setCursor(25, 45);
-    display.println("Press Button");
+    display.setCursor(25, 45); 
+    display.print("SCORE: ");
+    display.print(score);
+
 
     if (isButtonPressed) {
       resetGame();
@@ -368,7 +389,9 @@ void updateLed() {
 
 // 게임 초기화 함수
 void resetGame() {
-  lives = INITIAL_LIVES; 
+  lives = INITIAL_LIVES;
+  score = 0;
+
   paddlePos = 118 / 2.0;
   targetPaddlePos = 118 / 2;
   currentState = STATE_READY;
