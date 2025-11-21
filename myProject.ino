@@ -96,6 +96,9 @@ const unsigned char heart_bmp[] PROGMEM = {
 void setLedColor(int r, int g, int b);
 void resetGame();
 void updateLed();
+void processInput();
+void updateGame();
+void renderGame();
 
 // --- 초기화 ---
 void setup() {
@@ -144,6 +147,14 @@ void setup() {
 
 // --- 메인 루프 ---
 void loop() {
+  processInput(); // 1. 입력 처리
+  updateGame();   // 2. 게임 로직 처리
+  renderGame();   // 3. 화면 그리기
+  updateLed();    // 4. LED 처리
+}
+
+// --- 입력 처리 함수 ---
+void processInput() {
   // 조이스틱 X축 값 읽기 (중앙값 521) -> 0~127값으로 변환
   int joyX = analogRead(JOYSTICK_X_PIN);
 
@@ -167,10 +178,11 @@ void loop() {
       }
     }
   }
+}
 
+// --- 게임 로직 업데이트 함수 ---
+void updateGame() {
   // 게임 상태별 로직
-  display.clearDisplay(); 
-
   if (currentState == STATE_READY) {
     // [READY 상태] 공이 패들에 붙어 다님
     ballX = paddlePos + (PADDLE_W / 2.0);
@@ -186,18 +198,6 @@ void loop() {
 
       tone(BUZZER_PIN, SND_START, 100); 
     }
-
-    // 점수 표시
-    display.setTextSize(1);
-    display.setCursor(0, 0);
-    display.print("SCORE:");
-    display.print(score);
-
-    display.drawLine(0, TOP_BAR_HEIGHT, SCREEN_WIDTH, TOP_BAR_HEIGHT, SSD1306_WHITE);
-
-    // 패들, 공 그리기
-    display.fillRect((int)paddlePos, PADDLE_Y, PADDLE_W, PADDLE_H, SSD1306_WHITE);
-    display.fillCircle((int)ballX, (int)ballY, (int)BALL_R, SSD1306_WHITE);
 
   } else if (currentState == STATE_PLAYING) {
     // [PLAYING 상태]
@@ -307,6 +307,40 @@ void loop() {
       }
     }
 
+  } else if (currentState == STATE_GAME_OVER) {
+    // 버튼 누르면 게임 리셋
+    if (isButtonPressed) {
+      resetGame();
+      tone(BUZZER_PIN, SND_HIT_PADDLE, 100);
+      tone(BUZZER_PIN, SND_HIT_BRICK, 200);
+    }
+  } else if (currentState == STATE_CLEAR) {
+    if (isButtonPressed) {
+      resetGame();
+      tone(BUZZER_PIN, SND_HIT_PADDLE, 100); 
+      tone(BUZZER_PIN, SND_HIT_BRICK, 200);
+    }
+  }
+}
+
+// --- 화면 그리기 함수 ---
+void renderGame() {
+  display.clearDisplay(); 
+
+  if (currentState == STATE_READY) {
+    // 점수 표시
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.print("SCORE:");
+    display.print(score);
+
+    display.drawLine(0, TOP_BAR_HEIGHT, SCREEN_WIDTH, TOP_BAR_HEIGHT, SSD1306_WHITE);
+
+    // 패들, 공 그리기
+    display.fillRect((int)paddlePos, PADDLE_Y, PADDLE_W, PADDLE_H, SSD1306_WHITE);
+    display.fillCircle((int)ballX, (int)ballY, (int)BALL_R, SSD1306_WHITE);
+
+  } else if (currentState == STATE_PLAYING) {
     // 점수 표시
     display.setTextSize(1);
     display.setCursor(0, 0);
@@ -329,12 +363,6 @@ void loop() {
     display.print("SCORE: ");
     display.print(score);
 
-    // 버튼 누르면 게임 리셋
-    if (isButtonPressed) {
-      resetGame();
-      tone(BUZZER_PIN, SND_HIT_PADDLE, 100);
-      tone(BUZZER_PIN, SND_HIT_BRICK, 200);
-    }
   } else if (currentState == STATE_CLEAR) {
     // [CLEAR 상태]
     display.setTextSize(2);
@@ -346,13 +374,6 @@ void loop() {
     display.setCursor(25, 45); 
     display.print("SCORE: ");
     display.print(score);
-
-
-    if (isButtonPressed) {
-      resetGame();
-      tone(BUZZER_PIN, SND_HIT_PADDLE, 100); 
-      tone(BUZZER_PIN, SND_HIT_BRICK, 200);
-    }
   }
 
   // --- 공통 요소 그리기 ---
@@ -374,7 +395,6 @@ void loop() {
   }
 
   display.display();
-  updateLed();
 }
 
 void setLedColor(int r, int g, int b) {
