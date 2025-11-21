@@ -33,6 +33,7 @@ enum GameState {
 GameState currentState = STATE_READY;
 
 // --- 게임 변수 ---
+#define INITIAL_LIVES 3 // 초기 생명 개수
 
 // 디바운스 변수
 unsigned long lastButtonTime = 0; // 버튼을 마지막으로 누른 시간
@@ -59,9 +60,10 @@ const int BRICK_COLS = 5;
 bool bricks[BRICK_ROWS][BRICK_COLS];
 const int brickWidth = 24;
 const int brickHeight = 3;
+int activeBricks = 0; // 남은 벽돌
 
 // 생명(하트) 변수
-int lives = 3;
+int lives = INITIAL_LIVES;
 
 // 하트 비트맵
 const unsigned char heart_bmp[] PROGMEM = {
@@ -211,12 +213,49 @@ void loop() {
       }
     }
 
+    // 벽돌 충돌 처리
+    const int brickOffsetY = 15;
+    bool hitBrick = false;
+
+    for (int r = 0; r < BRICK_ROWS; r++) {
+      for (int c = 0; c < BRICK_COLS; c++) {
+        if (bricks[r][c] == true) {
+          // 벽돌의 좌표
+          int bX = c * (brickWidth + 1);
+          int bY = brickOffsetY + r * (brickHeight + 1);
+
+          // 충돌 감지
+          if (ballX + ballRadius > bX && ballX - ballRadius < bX + brickWidth &&
+              ballY + ballRadius > bY && ballY - ballRadius < bY + brickHeight) {
+            
+            bricks[r][c] = false;
+            activeBricks--;
+            ballSpeedY = -ballSpeedY;
+            hitBrick = true;
+            
+            tone(BUZZER_PIN, 2000, 20);
+            break;
+          }
+        }
+      }
+      if (hitBrick) break; 
+    }
+
+    // 게임 클리어
+    if (activeBricks == 0) {
+      currentState = STATE_CLEAR;
+      tone(BUZZER_PIN, 1000, 100); delay(100);
+      tone(BUZZER_PIN, 1200, 100); delay(100);
+      tone(BUZZER_PIN, 1500, 200); delay(200);
+      noTone(BUZZER_PIN);
+    }
+
     // 바닥 충돌 (생명 감소)
     if (ballY - ballRadius > SCREEN_HEIGHT) {
       lives--; 
       
       setLedColor(255, 0, 0); // 빨강
-      tone(BUZZER_PIN, 200, 500);
+      tone(BUZZER_PIN, 200, 300);
       delay(500);
 
       if (lives > 0) {
@@ -251,6 +290,26 @@ void loop() {
       tone(BUZZER_PIN, 1500, 100);
       tone(BUZZER_PIN, 2000, 200);
     }
+  } else if (currentState == STATE_CLEAR) {
+    // [CLEAR 상태]
+    display.setTextSize(2);
+    display.setCursor(16, 20);
+    display.println("YOU WIN!");
+    display.setTextSize(1);
+    display.setCursor(25, 45);
+    display.println("Press Button");
+
+    // 무지개 LED
+    long now = millis();
+    if (now % 300 < 100) setLedColor(255, 0, 0);
+    else if (now % 300 < 200) setLedColor(0, 255, 0);
+    else setLedColor(0, 0, 255);
+
+    if (isButtonPressed) {
+      resetGame();
+      tone(BUZZER_PIN, 1500, 100); 
+      tone(BUZZER_PIN, 2000, 200);
+    }
   }
 
   // --- 공통 요소 그리기 ---
@@ -265,7 +324,7 @@ void loop() {
         }
       }
     }
-    
+
     // 생명
     for (int i = 0; i < lives; i++) {
       display.drawBitmap(118 - (i * 10), 2, heart_bmp, 8, 8, SSD1306_WHITE);
@@ -283,16 +342,18 @@ void setLedColor(int r, int g, int b) {
 
 // 게임 초기화 함수
 void resetGame() {
-  lives = 3;
+  lives = INITIAL_LIVES; 
   paddlePos = 118 / 2.0;
   targetPaddlePos = 118 / 2;
   currentState = STATE_READY;
   setLedColor(0, 255, 0); // 녹색
 
   // 벽돌 복구
+  activeBricks = 0;
   for (int r = 0; r < BRICK_ROWS; r++) {
     for (int c = 0; c < BRICK_COLS; c++) {
       bricks[r][c] = true;
+      activeBricks++;
     }
   }
 }

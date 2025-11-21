@@ -30,7 +30,7 @@
 
 **🔹 3. 게임 로직**
 
-- [ ] 게임 상태(Game State) 관리 (TITLE, READY, PLAYING, GAME_OVER, CLEAR)
+- [x] 게임 상태(Game State) 관리 (TITLE, READY, PLAYING, GAME_OVER, CLEAR)
 
 [Ready 상태]
 
@@ -43,8 +43,8 @@
 - [x] 공-벽(상, 좌, 우) 충돌 검사 및 방향 반전
 - [x] 공-패들 충돌 검사 및 방향 반전
 - [x] 공-바닥 충돌 검사 (생명 감소, READY 상태로 복귀)
-- [ ] 벽돌 배열 생성 및 관리 (예: 2차원 배열)
-- [ ] 공-벽돌 충돌 검사 (벽돌 삭제, 공 방향 반전)
+- [x] 벽돌 배열 생성 및 관리 (예: 2차원 배열)
+- [x] 공-벽돌 충돌 검사 (벽돌 삭제, 공 방향 반전)
 
 [GameOver 상태]
 
@@ -52,13 +52,13 @@
 
 [Clear 상태]
 
-- [ ] 벽돌 0개 시 GAME_CLEAR 상태로 변경
+- [x] 벽돌 0개 시 CLEAR 상태로 변경
 
 **🔹 4. 디스플레이 출력**
 
 - [x] TITLE 상태: "BRICK BREAKER" 텍스트 출력
-- [ ] GAME_OVER 상태: "GAME OVER" 텍스트 출력
-- [ ] CLEAR 상태: "CLEAR" 텍스트 출력
+- [x] GAME_OVER 상태: "GAME OVER" 텍스트 출력
+- [x] CLEAR 상태: "CLEAR" 텍스트 출력
 - [x] PLAYING 상태: 패들, 공, 벽돌, 하트 그리기
 - [x] 화면 업데이트
 
