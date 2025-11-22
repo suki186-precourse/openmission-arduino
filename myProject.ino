@@ -106,6 +106,22 @@ void processInput();
 void updateGame();
 void renderGame();
 
+// 로직 함수들
+void updateReadyState();
+void updatePlayingState();
+void handleGameReset();
+void handleWallCollision();
+void handlePaddleCollision();
+void handleBrickCollision();
+void handleGameClear();
+void handleFloorCollision();
+
+// 그리기 함수들
+void drawScore();
+void drawGameObjects();
+void drawBricks();
+void drawLives();
+
 // --- 초기화 ---
 void setup() {
   Serial.begin(9600);
@@ -193,141 +209,154 @@ void processInput() {
 void updateGame() {
   // 게임 상태별 로직
   if (currentState == STATE_READY) {
-    // [READY 상태] 공이 패들에 붙어 다님
-    ball.x = paddle.x + (PADDLE_W / 2.0);
-    ball.y = PADDLE_Y - BALL_R - 1;
-
-    // 버튼을 누르면 -> 공 발사, PLAYING 상태로
-    if (isButtonPressed) {
-      currentState = STATE_PLAYING;
-
-      ball.vx = BALL_SPEED_INIT; 
-      ball.vy = -BALL_SPEED_INIT; 
-
-      tone(BUZZER_PIN, SND_START, 100); 
-    }
-
+    updateReadyState();
   } else if (currentState == STATE_PLAYING) {
-    // [PLAYING 상태]
-    ball.x += ball.vx;
-    ball.y += ball.vy;
+    updatePlayingState();
+  } else if (currentState == STATE_GAME_OVER || currentState == STATE_CLEAR) {
+    handleGameReset();
+  }
+}
 
-    // 벽 충돌 처리
-    if (ball.x - BALL_R <= 0) { // 왼쪽
-      ball.x = BALL_R;
-      ball.vx = -ball.vx; // 방향 반전
-      tone(BUZZER_PIN, SND_HIT_WALL, 20);
-    }
-    else if (ball.x + BALL_R >= SCREEN_WIDTH) { // 오른쪽
-      ball.x = SCREEN_WIDTH - BALL_R;
-      ball.vx = -ball.vx;
-      tone(BUZZER_PIN, SND_HIT_WALL, 20);
-    }
+void updateReadyState() {
+  // [READY 상태] 공이 패들에 붙어 다님
+  ball.x = paddle.x + (PADDLE_W / 2.0);
+  ball.y = PADDLE_Y - BALL_R - 1;
 
-    if (ball.y - BALL_R <= TOP_BAR_HEIGHT) { // 위쪽
-      ball.y = TOP_BAR_HEIGHT + BALL_R;
+  // 버튼을 누르면 -> 공 발사, PLAYING 상태로
+  if (isButtonPressed) {
+    currentState = STATE_PLAYING;
+
+    ball.vx = BALL_SPEED_INIT; 
+    ball.vy = -BALL_SPEED_INIT; 
+
+    tone(BUZZER_PIN, SND_START, 100); 
+  }
+}
+
+void updatePlayingState() {
+  // [PLAYING 상태]
+  ball.x += ball.vx;
+  ball.y += ball.vy;
+
+  handleWallCollision();
+  handlePaddleCollision();
+  handleBrickCollision();
+  handleGameClear();
+  handleFloorCollision();
+}
+
+// 벽 충돌 처리
+void handleWallCollision() {
+  if (ball.x - BALL_R <= 0) { // 왼쪽
+    ball.x = BALL_R;
+    ball.vx = -ball.vx; // 방향 반전
+    tone(BUZZER_PIN, SND_HIT_WALL, 20);
+  }
+  else if (ball.x + BALL_R >= SCREEN_WIDTH) { // 오른쪽
+    ball.x = SCREEN_WIDTH - BALL_R;
+    ball.vx = -ball.vx;
+    tone(BUZZER_PIN, SND_HIT_WALL, 20);
+  }
+
+  if (ball.y - BALL_R <= TOP_BAR_HEIGHT) { // 위쪽
+    ball.y = TOP_BAR_HEIGHT + BALL_R;
+    ball.vy = -ball.vy; 
+    tone(BUZZER_PIN, SND_HIT_WALL, 20);
+  }
+}
+
+// 패들 충돌 처리
+void handlePaddleCollision() {
+  if (ball.vy <= 0) return;
+  if (ball.y + BALL_R < PADDLE_Y || ball.y - BALL_R > PADDLE_Y + PADDLE_H) return;
+
+  if (ball.x + BALL_R >= paddle.x && ball.x - BALL_R <= paddle.x + PADDLE_W) {
       ball.vy = -ball.vy; 
-      tone(BUZZER_PIN, SND_HIT_WALL, 20);
-    }
-
-    // 패들 충돌 처리
-    if (ball.vy > 0 && 
-        ball.y + BALL_R >= PADDLE_Y && 
-        ball.y - BALL_R <= PADDLE_Y + PADDLE_H) {
-        
-      if (ball.x + BALL_R >= paddle.x && 
-          ball.x - BALL_R <= paddle.x + PADDLE_W) {
-        ball.vy = -ball.vy; 
-        
-        // 공이 패들에 박히지 않도록
-        ball.y = PADDLE_Y - BALL_R - 0.1;
-
-        // X축 속도 변화
-        float hitPoint = ball.x - (paddle.x + (PADDLE_W / 2.0));
-        ball.vx = hitPoint * 0.3; 
-
-        // 속도 제한
-        if (ball.vx > BALL_SPEED_MAX) ball.vx = BALL_SPEED_MAX;
-        if (ball.vx < -BALL_SPEED_MAX) ball.vx = -BALL_SPEED_MAX;
-        if (ball.vx > -BALL_SPEED_MIN && ball.vx < BALL_SPEED_MIN) ball.vx = (ball.vx > 0) ? BALL_SPEED_MIN : -BALL_SPEED_MIN;
-        tone(BUZZER_PIN, SND_HIT_PADDLE, 30); 
-      }
-    }
-
-    // 벽돌 충돌 처리
-    bool hitBrick = false;
-
-    for (int r = 0; r < BRICK_ROWS; r++) {
-      for (int c = 0; c < BRICK_COLS; c++) {
-        if (bricks[r][c] == true) {
-          // 벽돌의 좌표
-          int bX = c * (BRICK_W + BRICK_GAP);
-          int bY = BRICK_OFFSET_Y + r * (BRICK_H + BRICK_GAP);
-
-          // 충돌 감지
-          if (ball.x + BALL_R > bX && ball.x - BALL_R < bX + BRICK_W &&
-              ball.y + BALL_R > bY && ball.y - BALL_R < bY + BRICK_H) {
-            
-            bricks[r][c] = false;
-            activeBricks--;
-            ball.vy = -ball.vy;
-            hitBrick = true;
-
-            score += 100; // 점수 증가
-            
-            tone(BUZZER_PIN, SND_HIT_BRICK, 20);
-            break;
-          }
-        }
-      }
-      if (hitBrick) break; 
-    }
-
-    // 게임 클리어
-    if (activeBricks == 0) {
-      currentState = STATE_CLEAR;
-      tone(BUZZER_PIN, SND_WIN, 100); delay(100);
-      tone(BUZZER_PIN, SND_WIN + 200, 100); delay(100);
-      tone(BUZZER_PIN, SND_WIN + 500, 200); delay(200);
-      noTone(BUZZER_PIN);
-    }
-
-    // 바닥 충돌 (생명 감소)
-    if (ball.y - BALL_R > SCREEN_HEIGHT) {
-      lives--;
-      score -= 50; // 점수 감소
-      if (score < 0) score = 0;
       
-      setLedColor(255, 0, 0); // 빨강
-      tone(BUZZER_PIN, SND_DIE, 300);
-      delay(500);
+      // 공이 패들에 박히지 않도록
+      ball.y = PADDLE_Y - BALL_R - 0.1;
 
-      if (lives > 0) {
-        // 생명이 남았으면 -> READY 상태
-        currentState = STATE_READY;
-        paddle.x = PADDLE_MAP_MAX / 2.0;
-        setLedColor(0, 255, 0); // 초록
-      } else {
-        // 생명 0 -> GAME_OVER 상태
-        currentState = STATE_GAME_OVER;
-        setLedColor(255, 0, 0); // 빨강
-        tone(BUZZER_PIN, SND_GAMEOVER, 1000);
+      // X축 속도 변화
+      float hitPoint = ball.x - (paddle.x + (PADDLE_W / 2.0));
+      ball.vx = hitPoint * 0.3; 
+
+      // 속도 제한
+      if (ball.vx > BALL_SPEED_MAX) ball.vx = BALL_SPEED_MAX;
+      if (ball.vx < -BALL_SPEED_MAX) ball.vx = -BALL_SPEED_MAX;
+      if (ball.vx > -BALL_SPEED_MIN && ball.vx < BALL_SPEED_MIN) ball.vx = (ball.vx > 0) ? BALL_SPEED_MIN : -BALL_SPEED_MIN;
+      tone(BUZZER_PIN, SND_HIT_PADDLE, 30); 
+  }
+}
+
+// 벽돌 충돌 처리
+void handleBrickCollision() { 
+  for (int r = 0; r < BRICK_ROWS; r++) {
+    for (int c = 0; c < BRICK_COLS; c++) {
+      if (bricks[r][c] == false) continue;
+
+      // 벽돌의 좌표
+      int bX = c * (BRICK_W + BRICK_GAP);
+      int bY = BRICK_OFFSET_Y + r * (BRICK_H + BRICK_GAP);
+
+      // 충돌 감지
+      if (ball.x + BALL_R > bX && ball.x - BALL_R < bX + BRICK_W &&
+          ball.y + BALL_R > bY && ball.y - BALL_R < bY + BRICK_H) {
+        
+        bricks[r][c] = false;
+        activeBricks--;
+        ball.vy = -ball.vy;
+        
+        score += 100; // 점수 증가
+        
+        tone(BUZZER_PIN, SND_HIT_BRICK, 20);
+        return;
       }
     }
+  }
+}
 
-  } else if (currentState == STATE_GAME_OVER) {
-    // 버튼 누르면 게임 리셋
-    if (isButtonPressed) {
-      resetGame();
-      tone(BUZZER_PIN, SND_HIT_PADDLE, 100);
-      tone(BUZZER_PIN, SND_HIT_BRICK, 200);
+// 게임 클리어
+void handleGameClear() {
+  if (activeBricks == 0) {
+    currentState = STATE_CLEAR;
+    tone(BUZZER_PIN, SND_WIN, 100); delay(100);
+    tone(BUZZER_PIN, SND_WIN + 200, 100); delay(100);
+    tone(BUZZER_PIN, SND_WIN + 500, 200); delay(200);
+    noTone(BUZZER_PIN);
+  }
+}
+
+// 바닥 충돌 (생명 감소)
+void handleFloorCollision() {
+  if (ball.y - BALL_R > SCREEN_HEIGHT) {
+    lives--;
+    score -= 50; // 점수 감소
+    if (score < 0) score = 0;
+    
+    setLedColor(255, 0, 0); // 빨강
+    tone(BUZZER_PIN, SND_DIE, 300);
+    delay(500);
+
+    if (lives > 0) {
+      // 생명이 남았으면 -> READY 상태
+      currentState = STATE_READY;
+      paddle.x = PADDLE_MAP_MAX / 2.0;
+      setLedColor(0, 255, 0); // 초록
+    } else {
+      // 생명 0 -> GAME_OVER 상태
+      currentState = STATE_GAME_OVER;
+      setLedColor(255, 0, 0); // 빨강
+      tone(BUZZER_PIN, SND_GAMEOVER, 1000);
     }
-  } else if (currentState == STATE_CLEAR) {
-    if (isButtonPressed) {
-      resetGame();
-      tone(BUZZER_PIN, SND_HIT_PADDLE, 100); 
-      tone(BUZZER_PIN, SND_HIT_BRICK, 200);
-    }
+  }
+}
+
+void handleGameReset() {
+  // 버튼 누르면 게임 리셋
+  if (isButtonPressed) {
+    resetGame();
+    tone(BUZZER_PIN, SND_HIT_PADDLE, 100);
+    tone(BUZZER_PIN, SND_HIT_BRICK, 200);
   }
 }
 
@@ -336,30 +365,11 @@ void renderGame() {
   display.clearDisplay(); 
 
   if (currentState == STATE_READY) {
-    // 점수 표시
-    display.setTextSize(1);
-    display.setCursor(0, 0);
-    display.print("SCORE:");
-    display.print(score);
-
-    display.drawLine(0, TOP_BAR_HEIGHT, SCREEN_WIDTH, TOP_BAR_HEIGHT, SSD1306_WHITE);
-
-    // 패들, 공 그리기
-    display.fillRect((int)paddle.x, PADDLE_Y, PADDLE_W, PADDLE_H, SSD1306_WHITE);
-    display.fillCircle((int)ball.x, (int)ball.y, (int)BALL_R, SSD1306_WHITE);
-
+    drawScore();
+    drawGameObjects();
   } else if (currentState == STATE_PLAYING) {
-    // 점수 표시
-    display.setTextSize(1);
-    display.setCursor(0, 0);
-    display.print("SCORE:");
-    display.print(score);
-
-    display.drawLine(0, TOP_BAR_HEIGHT, SCREEN_WIDTH, TOP_BAR_HEIGHT, SSD1306_WHITE);
-
-    display.fillRect((int)paddle.x, PADDLE_Y, PADDLE_W, PADDLE_H, SSD1306_WHITE);
-    display.fillCircle((int)ball.x, (int)ball.y, (int)BALL_R, SSD1306_WHITE);
-
+    drawScore();
+    drawGameObjects();
   } else if (currentState == STATE_GAME_OVER) {
     // [GAME_OVER 상태]
     display.setTextSize(2);
@@ -370,7 +380,6 @@ void renderGame() {
     display.setCursor(25, 45);
     display.print("SCORE: ");
     display.print(score);
-
   } else if (currentState == STATE_CLEAR) {
     // [CLEAR 상태]
     display.setTextSize(2);
@@ -385,24 +394,48 @@ void renderGame() {
   }
 
   // --- 공통 요소 그리기 ---
-  // 벽돌 (GAME_OVER 아닌 경우만)
+  // GAME_OVER 아닌 경우만 벽돌, 생명 그리기
   if (currentState != STATE_GAME_OVER) {
-    for (int r = 0; r < BRICK_ROWS; r++) {
-      for (int c = 0; c < BRICK_COLS; c++) {
-        if (bricks[r][c] == true) {
-          display.fillRect(c * (BRICK_W + BRICK_GAP), BRICK_OFFSET_Y + r * (BRICK_H + BRICK_GAP), 
-                           BRICK_W, BRICK_H, SSD1306_WHITE);
-        }
-      }
-    }
-
-    // 생명
-    for (int i = 0; i < lives; i++) {
-      display.drawBitmap(PADDLE_MAP_MAX - (i * 10), 2, heart_bmp, 8, 8, SSD1306_WHITE);
-    }
+    drawBricks();
+    drawLives();
   }
 
   display.display();
+}
+
+// 점수 표시
+void drawScore() {
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.print("SCORE:");
+  display.print(score);
+
+  display.drawLine(0, TOP_BAR_HEIGHT, SCREEN_WIDTH, TOP_BAR_HEIGHT, SSD1306_WHITE);
+}
+
+// 패들, 공 그리기
+void drawGameObjects() {
+  display.fillRect((int)paddle.x, PADDLE_Y, PADDLE_W, PADDLE_H, SSD1306_WHITE);
+  display.fillCircle((int)ball.x, (int)ball.y, (int)BALL_R, SSD1306_WHITE);
+}
+
+// 벽돌 그리기
+void drawBricks() {
+  for (int r = 0; r < BRICK_ROWS; r++) {
+    for (int c = 0; c < BRICK_COLS; c++) {
+      if (bricks[r][c] == true) {
+        display.fillRect(c * (BRICK_W + BRICK_GAP), BRICK_OFFSET_Y + r * (BRICK_H + BRICK_GAP), 
+                         BRICK_W, BRICK_H, SSD1306_WHITE);
+      }
+    }
+  }
+}
+
+// 생명 그리기
+void drawLives() {
+  for (int i = 0; i < lives; i++) {
+    display.drawBitmap(PADDLE_MAP_MAX - (i * 10), 2, heart_bmp, 8, 8, SSD1306_WHITE);
+  }
 }
 
 void setLedColor(int r, int g, int b) {
