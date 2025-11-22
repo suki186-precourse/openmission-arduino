@@ -105,6 +105,7 @@ void updateLed();
 void processInput();
 void updateGame();
 void renderGame();
+void playSound(int freq, int duration);
 
 // 로직 함수들
 void updateReadyState();
@@ -121,6 +122,7 @@ void drawScore();
 void drawGameObjects();
 void drawBricks();
 void drawLives();
+void drawEndScreen(const char* title);
 
 // --- 초기화 ---
 void setup() {
@@ -133,18 +135,9 @@ void setup() {
   pinMode(BUZZER_PIN, OUTPUT);
 
   // --- LED, 부저 테스트 ---
-  setLedColor(255, 0, 0); 
-  tone(BUZZER_PIN, 262, 200);
-  delay(300); 
-
-  setLedColor(0, 255, 0); 
-  tone(BUZZER_PIN, 294, 200);
-  delay(300); 
-
-  setLedColor(0, 0, 255); 
-  tone(BUZZER_PIN, 330, 200);
-  delay(300); 
-
+  setLedColor(255, 0, 0); playSound(262, 200); delay(300); 
+  setLedColor(0, 255, 0); playSound(294, 200); delay(300); 
+  setLedColor(0, 0, 255); playSound(330, 200); delay(300); 
   setLedColor(0, 0, 0); 
 
   // OLED 초기화
@@ -229,7 +222,7 @@ void updateReadyState() {
     ball.vx = BALL_SPEED_INIT; 
     ball.vy = -BALL_SPEED_INIT; 
 
-    tone(BUZZER_PIN, SND_START, 100); 
+    playSound(SND_START, 100); 
   }
 }
 
@@ -250,18 +243,18 @@ void handleWallCollision() {
   if (ball.x - BALL_R <= 0) { // 왼쪽
     ball.x = BALL_R;
     ball.vx = -ball.vx; // 방향 반전
-    tone(BUZZER_PIN, SND_HIT_WALL, 20);
+    playSound(SND_HIT_WALL, 20);
   }
   else if (ball.x + BALL_R >= SCREEN_WIDTH) { // 오른쪽
     ball.x = SCREEN_WIDTH - BALL_R;
     ball.vx = -ball.vx;
-    tone(BUZZER_PIN, SND_HIT_WALL, 20);
+    playSound(SND_HIT_WALL, 20);
   }
 
   if (ball.y - BALL_R <= TOP_BAR_HEIGHT) { // 위쪽
     ball.y = TOP_BAR_HEIGHT + BALL_R;
     ball.vy = -ball.vy; 
-    tone(BUZZER_PIN, SND_HIT_WALL, 20);
+    playSound(SND_HIT_WALL, 20);
   }
 }
 
@@ -284,7 +277,7 @@ void handlePaddleCollision() {
       if (ball.vx > BALL_SPEED_MAX) ball.vx = BALL_SPEED_MAX;
       if (ball.vx < -BALL_SPEED_MAX) ball.vx = -BALL_SPEED_MAX;
       if (ball.vx > -BALL_SPEED_MIN && ball.vx < BALL_SPEED_MIN) ball.vx = (ball.vx > 0) ? BALL_SPEED_MIN : -BALL_SPEED_MIN;
-      tone(BUZZER_PIN, SND_HIT_PADDLE, 30); 
+      playSound(SND_HIT_PADDLE, 30); 
   }
 }
 
@@ -308,7 +301,7 @@ void handleBrickCollision() {
         
         score += 100; // 점수 증가
         
-        tone(BUZZER_PIN, SND_HIT_BRICK, 20);
+        playSound(SND_HIT_BRICK, 20);
         return;
       }
     }
@@ -319,9 +312,9 @@ void handleBrickCollision() {
 void handleGameClear() {
   if (activeBricks == 0) {
     currentState = STATE_CLEAR;
-    tone(BUZZER_PIN, SND_WIN, 100); delay(100);
-    tone(BUZZER_PIN, SND_WIN + 200, 100); delay(100);
-    tone(BUZZER_PIN, SND_WIN + 500, 200); delay(200);
+    playSound(SND_WIN, 100); delay(100);
+    playSound(SND_WIN + 200, 100); delay(100);
+    playSound(SND_WIN + 500, 200); delay(200);
     noTone(BUZZER_PIN);
   }
 }
@@ -334,7 +327,7 @@ void handleFloorCollision() {
     if (score < 0) score = 0;
     
     setLedColor(255, 0, 0); // 빨강
-    tone(BUZZER_PIN, SND_DIE, 300);
+    playSound(SND_DIE, 300);
     delay(500);
 
     if (lives > 0) {
@@ -346,7 +339,7 @@ void handleFloorCollision() {
       // 생명 0 -> GAME_OVER 상태
       currentState = STATE_GAME_OVER;
       setLedColor(255, 0, 0); // 빨강
-      tone(BUZZER_PIN, SND_GAMEOVER, 1000);
+      playSound(SND_GAMEOVER, 1000);
     }
   }
 }
@@ -355,8 +348,8 @@ void handleGameReset() {
   // 버튼 누르면 게임 리셋
   if (isButtonPressed) {
     resetGame();
-    tone(BUZZER_PIN, SND_HIT_PADDLE, 100);
-    tone(BUZZER_PIN, SND_HIT_BRICK, 200);
+    playSound(SND_HIT_PADDLE, 100);
+    playSound(SND_HIT_BRICK, 200);
   }
 }
 
@@ -364,33 +357,15 @@ void handleGameReset() {
 void renderGame() {
   display.clearDisplay(); 
 
-  if (currentState == STATE_READY) {
+  // 준비, 진행 중
+  if (currentState == STATE_READY || currentState == STATE_PLAYING) {
     drawScore();
     drawGameObjects();
-  } else if (currentState == STATE_PLAYING) {
-    drawScore();
-    drawGameObjects();
-  } else if (currentState == STATE_GAME_OVER) {
-    // [GAME_OVER 상태]
-    display.setTextSize(2);
-    display.setCursor(10, 20);
-    display.println("GAME OVER");
-    
-    display.setTextSize(1);
-    display.setCursor(25, 45);
-    display.print("SCORE: ");
-    display.print(score);
-  } else if (currentState == STATE_CLEAR) {
-    // [CLEAR 상태]
-    display.setTextSize(2);
-    display.setCursor(16, 20);
-    display.println("YOU WIN!");
-    
-    // 점수 표시
-    display.setTextSize(1);
-    display.setCursor(25, 45); 
-    display.print("SCORE: ");
-    display.print(score);
+  } 
+  // 게임 오버, 클리어
+  else {
+    const char* title = (currentState == STATE_CLEAR) ? "YOU WIN!" : "GAME OVER";
+    drawEndScreen(title);
   }
 
   // --- 공통 요소 그리기 ---
@@ -411,6 +386,18 @@ void drawScore() {
   display.print(score);
 
   display.drawLine(0, TOP_BAR_HEIGHT, SCREEN_WIDTH, TOP_BAR_HEIGHT, SSD1306_WHITE);
+}
+
+// 결과 화면 그리기 (GAME OVER / YOU WIN)
+void drawEndScreen(const char* title) {
+  display.setTextSize(2);
+  display.setCursor(10, 20); 
+  display.println(title);
+  
+  display.setTextSize(1);
+  display.setCursor(25, 45);
+  display.print("SCORE: ");
+  display.print(score);
 }
 
 // 패들, 공 그리기
@@ -442,6 +429,11 @@ void setLedColor(int r, int g, int b) {
   analogWrite(LED_PIN_R, r);
   analogWrite(LED_PIN_G, g);
   analogWrite(LED_PIN_B, b);
+}
+
+// 부저 재생 함수
+void playSound(int freq, int duration) {
+  tone(BUZZER_PIN, freq, duration);
 }
 
 // LED 상태 관리 함수
