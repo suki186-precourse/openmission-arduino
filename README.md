@@ -87,12 +87,16 @@ LED
 
 ```bash
 myProject/
-├── Myproject.ino    # 메인 스케치 파일
-│
-└── logics
-    ├── ball.h       # 공 로직
-    ├── paddle.h     # 패들 로직
-    └── display.h    # OLED 출력 함수
+├── myProject.ino       # 메인 파일
+├── Config.h            # 상수, 게임 밸런스 설정
+├── Types.h             # 구조체, 게임 상태 정의
+├── Globals.h           # 점수, 공의 위치 등 전역 변수
+├── Hardware.h          # 조이스틱, 부저, LED를 제어하는 함수 목록
+├── Hardware.cpp        # 실제 조이스틱 값을 읽거나 소리를 내는 코드
+├── GameLogic.h         # 게임 규칙, 충돌 감지, 점수 계산 함수 목록
+├── GameLogic.cpp       # 공이 움직이고 벽돌이 깨지는 수학적 계산 코드
+├── Renderer.h          # 화면에 점수, 공, 패들을 그리는 함수 목록
+└── Renderer.cpp        # 실제로 화면에 픽셀을 찍는 코드
 ```
 
 ---
